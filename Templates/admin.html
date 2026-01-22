@@ -52,11 +52,11 @@
         </div>
         <div class="stat-card">
             <div class="stat-label">Model Accuracy</div>
-            <div class="stat-value">{{ "%.1f"|format(model_meta.get('accuracy', 0) * 100) }}%</div>
+            <div class="stat-value">{{ (model_meta.get('accuracy', 0) * 100)|round(1) }}%</div>
         </div>
         <div class="stat-card">
             <div class="stat-label">F1 Score</div>
-            <div class="stat-value">{{ "%.2f"|format(model_meta.get('f1_score', 0)) }}</div>
+            <div class="stat-value">{{ model_meta.get('f1_score', 0)|round(2) }}</div>
         </div>
     </div>
 
@@ -110,8 +110,8 @@
                         {% for user in users[:5] %}
                         <tr>
                             <td>
-                                <div style="font-weight: 500;">{{ user['name'] if user['name'] else
-                                    user['username'].split('@')[0] }}</div>
+                                <div style="font-weight: 500;">{{ user['fullname'] or user['username'].split('@')[0] }}
+                                </div>
                                 <div style="font-size: 0.8rem; color: var(--text-muted);">{{ user['username'] }}</div>
                             </td>
                             <td>
@@ -175,6 +175,7 @@
 </div>
 
 <script>
+    /* eslint-disable */
     // Theme Colors
     const colorTeal = '#14B8A6';
     const colorTealLight = '#2DD4BF';
@@ -190,6 +191,19 @@
     Chart.defaults.borderColor = colorGrid;
     Chart.defaults.font.family = "'Inter', sans-serif";
 
+    // --- Data Injection (Clean Syntax) ---
+    // Using JSON.parse or casting to ensure IDE treats this as valid JS
+    const realDetected = Number('{{ real_detected }}');
+    const fakeDetected = Number('{{ fake_detected }}');
+
+    // modelData is a JSON string from backend? No, it's a dict. 
+    // We convert it to a string with tojson, then parse it back to an object.
+    const modelData = JSON.parse('{{ model_meta.get("models", {}) | tojson | safe }}');
+
+    const activityDates = JSON.parse('{{ activity_dates | safe }}');
+    const activityCounts = JSON.parse('{{ activity_counts | safe }}');
+
+
     // 1. Prediction Distribution (Pie/Doughnut)
     const ctxPred = document.getElementById('predictionChart').getContext('2d');
     new Chart(ctxPred, {
@@ -197,26 +211,25 @@
         data: {
             labels: ['Real Jobs', 'Fake Jobs'],
             datasets: [{
-                data: [{{ real_detected }}, {{ fake_detected }}],
-        backgroundColor: [colorTeal, colorRed],
-        borderWidth: 0,
-        hoverOffset: 4
-    }]
+                data: [realDetected, fakeDetected],
+                backgroundColor: [colorTeal, colorRed],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
         },
         options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'bottom',
-                labels: { color: colorText }
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: colorText }
+                }
             }
         }
-    }
     });
 
     // 2. Model Accuracy Comparison (Bar)
-    const modelData = {{ model_meta.get("models", {}) | tojson | safe }};
     const modelLabels = Object.keys(modelData);
     const modelScores = Object.values(modelData).map(score => (score * 100).toFixed(1));
 
@@ -254,10 +267,6 @@
     });
 
     // 3. Activity Chart (Line)
-    // Parse JSON strings passed from Flask
-    const activityDates = {{ activity_dates | safe }};
-    const activityCounts = {{ activity_counts | safe }};
-
     const ctxActivity = document.getElementById('activityChart').getContext('2d');
     new Chart(ctxActivity, {
         type: 'line',

@@ -411,7 +411,7 @@ def admin():
         real_rate = round((real_detected / total_predictions) * 100, 1)
 
     # 2. Fetch Users (for Table)
-    c.execute("SELECT id, username, role, last_login FROM users ORDER BY id DESC")
+    c.execute("SELECT id, username, fullname, role, last_login FROM users ORDER BY id DESC")
     users = c.fetchall()
 
     # 3. Fetch Recent Predictions

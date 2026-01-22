@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - JobCheck{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="dashboard-header">
+        <div>
+            <h2>Admin Dashboard</h2>
+            <p style="color: var(--text-muted);">Logged in as: {{ session['username'] }}</p>
+        </div>
+        <div class="admin-actions">
+            <a href="{{ url_for('main.ui_predict') }}" class="btn-secondary">Prediction Page</a>
+            <a href="{{ url_for('main.logout') }}" class="btn-danger">Logout</a>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-value">{{ total_users }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Admins</div>
+            <div class="stat-value">{{ total_admins }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Predictions</div>
+            <div class="stat-value">{{ total_predictions }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Fake Detected</div>
+            <div class="stat-value text-danger">{{ fake_detected }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Real Detected</div>
+            <div class="stat-value text-success">{{ real_detected }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Fake Rate</div>
+            <div class="stat-value">{{ fake_rate }}%</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Real Rate</div>
+            <div class="stat-value">{{ real_rate }}%</div>
+        </div>
+        <!-- Model Stats -->
+        <div class="stat-card" style="border-left: 4px solid var(--primary-color);">
+            <div class="stat-label">Active Model</div>
+            <div class="stat-value" style="font-size: 1.2rem;">{{ model_meta.get('model_name', 'N/A') }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Model Accuracy</div>
+            <div class="stat-value">{{ "%.1f"|format(model_meta.get('accuracy', 0) * 100) }}%</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">F1 Score</div>
+            <div class="stat-value">{{ "%.2f"|format(model_meta.get('f1_score', 0)) }}</div>
+        </div>
+    </div>
+
+    <!-- Data Visualization Section -->
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <div class="charts-grid"
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-top: 2rem; margin-bottom: 2rem;">
+
+        <!-- Chart 1: Fake vs Real Distribution -->
+        <div class="stat-card" style="min-height: 350px;">
+            <div class="stat-label" style="text-align: center; margin-bottom: 1rem;">Prediction Distribution</div>
+            <div style="position: relative; height: 250px; width: 100%;">
+                <canvas id="predictionChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Chart 2: Model Accuracy Comparison -->
+        <div class="stat-card" style="min-height: 350px;">
+            <div class="stat-label" style="text-align: center; margin-bottom: 1rem;">Model Accuracy Comparison</div>
+            <div style="position: relative; height: 250px; width: 100%;">
+                <canvas id="modelChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Chart 3: Activity Over Time -->
+        <div class="stat-card" style="min-height: 350px;">
+            <div class="stat-label" style="text-align: center; margin-bottom: 1rem;">Activity (Last 30 Days)</div>
+            <div style="position: relative; height: 250px; width: 100%;">
+                <canvas id="activityChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2-col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+
+        <!-- User Table -->
+        <div>
+            <h3 style="margin-bottom: 1rem;">Users (Last Login)</h3>
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users[:5] %}
+                        <tr>
+                            <td>
+                                <div style="font-weight: 500;">{{ user['name'] if user['name'] else
+                                    user['username'].split('@')[0] }}</div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ user['username'] }}</div>
+                            </td>
+                            <td>
+                                <span class="badge {{ 'badge-admin' if user['role'] == 'ADMIN' else 'badge-user' }}">
+                                    {{ user['role'] }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if user['role'] == 'USER' %}
+                                <a href="{{ url_for('main.promote_user', user_id=user['id']) }}"
+                                    class="btn-sm btn-promote">Promote</a>
+                                {% elif user['role'] == 'ADMIN' and user['id'] != session['user_id'] %}
+                                <a href="{{ url_for('main.demote_user', user_id=user['id']) }}"
+                                    class="btn-sm btn-demote">Demote</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% if users|length > 5 %}
+                <div style="text-align: center; padding: 10px; color: var(--text-muted); font-size: 0.9rem;">
+                    Showing top 5 of {{ users|length }} users
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Prediction Logs -->
+        <div>
+            <h3 style="margin-bottom: 1rem;">Recent Activity</h3>
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Job Snippet</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in recent_logs %}
+                        <tr>
+                            <td>{{ log['username'].split('@')[0] }}</td>
+                            <td title="{{ log['input_text'] }}">{{ log['input_text'][:30] }}...</td>
+                            <td>
+                                <span
+                                    class="badge {{ 'bg-red-900 text-red-100' if 'Fake' in log['prediction_result'] else 'bg-green-900 text-green-100' }}"
+                                    style="padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">
+                                    {{ log['prediction_result'] }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+    // Theme Colors
+    const colorTeal = '#14B8A6';
+    const colorTealLight = '#2DD4BF';
+    const colorRed = '#EF4444';
+    const colorBlue = '#3B82F6';
+    const colorPurple = '#8B5CF6';
+    const colorAmber = '#F59E0B';
+    const colorText = '#E5E7EB';
+    const colorGrid = 'rgba(255, 255, 255, 0.1)';
+
+    // Global Defaults
+    Chart.defaults.color = colorText;
+    Chart.defaults.borderColor = colorGrid;
+    Chart.defaults.font.family = "'Inter', sans-serif";
+
+    // 1. Prediction Distribution (Pie/Doughnut)
+    const ctxPred = document.getElementById('predictionChart').getContext('2d');
+    new Chart(ctxPred, {
+        type: 'doughnut',
+        data: {
+            labels: ['Real Jobs', 'Fake Jobs'],
+            datasets: [{
+                data: [{{ real_detected }}, {{ fake_detected }}],
+        backgroundColor: [colorTeal, colorRed],
+        borderWidth: 0,
+        hoverOffset: 4
+    }]
+        },
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: { color: colorText }
+            }
+        }
+    }
+    });
+
+    // 2. Model Accuracy Comparison (Bar)
+    const modelData = {{ model_meta.get("models", {}) | tojson | safe }};
+    const modelLabels = Object.keys(modelData);
+    const modelScores = Object.values(modelData).map(score => (score * 100).toFixed(1));
+
+    const ctxModel = document.getElementById('modelChart').getContext('2d');
+    new Chart(ctxModel, {
+        type: 'bar',
+        data: {
+            labels: modelLabels,
+            datasets: [{
+                label: 'Accuracy (%)',
+                data: modelScores,
+                backgroundColor: [colorBlue, colorPurple, colorAmber],
+                borderRadius: 4,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    min: 80, // Assuming high accuracy, adjust if needed
+                    max: 100,
+                    grid: { color: colorGrid }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+
+    // 3. Activity Chart (Line)
+    // Parse JSON strings passed from Flask
+    const activityDates = {{ activity_dates | safe }};
+    const activityCounts = {{ activity_counts | safe }};
+
+    const ctxActivity = document.getElementById('activityChart').getContext('2d');
+    new Chart(ctxActivity, {
+        type: 'line',
+        data: {
+            labels: activityDates,
+            datasets: [{
+                label: 'Predictions',
+                data: activityCounts,
+                borderColor: colorTeal,
+                backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: colorTeal,
+                pointRadius: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 },
+                    grid: { color: colorGrid }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { maxTicksLimit: 5 }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+</script>
+{% endblock %}

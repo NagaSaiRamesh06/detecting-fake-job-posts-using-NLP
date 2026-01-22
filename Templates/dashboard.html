@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}My Dashboard - JobCheck{% endblock %}
+
+{% block content %}
+<div class="admin-container"> <!-- Reusing admin container logic for layout/width -->
+    <div class="dashboard-header">
+        <div>
+            <h2>Welcome, {{ session['username'].split('@')[0] }}!</h2>
+            <p style="color: var(--text-muted);">Here is your personal activity report.</p>
+        </div>
+        <div class="admin-actions">
+            <!-- Reuse primary/secondary button styles -->
+            <a href="{{ url_for('main.ui_predict') }}" class="btn-primary"
+                style="text-decoration: none; padding: 0.5rem 1rem; border-radius: 8px;">New Scan</a>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Scans</div>
+            <div class="stat-value">{{ total_scans }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Fake Jobs Found</div>
+            <div class="stat-value text-danger">{{ fake_found }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Real Jobs Found</div>
+            <div class="stat-value text-success">{{ real_found }}</div>
+        </div>
+    </div>
+
+    <!-- Recent Activity Table -->
+    <div class="grid-1-col" style="margin-top: 2rem;">
+        <div>
+            <h3 style="margin-bottom: 1rem;">Recent Scan History</h3>
+            <div class="table-responsive">
+                {% if history %}
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Job Snippet</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in history %}
+                        <tr>
+                            <td>{{ log['created_at'].split(' ')[0] }}</td>
+                            <td title="{{ log['input_text'] }}">{{ log['input_text'][:60] }}...</td>
+                            <td>
+                                <span
+                                    class="badge {{ 'bg-red-900 text-red-100' if 'Fake' in log['prediction_result'] else 'bg-green-900 text-green-100' }}"
+                                    style="padding: 4px 10px; border-radius: 12px; font-size: 0.85rem;">
+                                    {{ log['prediction_result'] }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div
+                    style="text-align: center; padding: 3rem; color: var(--text-muted); background: rgba(0,0,0,0.2); border-radius: 12px;">
+                    <p>No scans yet. Start by analyzing a job description!</p>
+                    <br>
+                    <a href="{{ url_for('main.ui_predict') }}" class="btn-primary"
+                        style="display: inline-block; width: auto; padding: 0.6rem 1.5rem;">Start Scanning</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

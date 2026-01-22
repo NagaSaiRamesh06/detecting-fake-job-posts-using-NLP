@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile - JobCheck{% endblock %}
+
+{% block content %}
+<div class="auth-box" style="max-width: 600px;">
+    <h2>User Profile</h2>
+
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <div
+            style="width: 80px; height: 80px; background: var(--secondary-color); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 2rem; color: white;">
+            {{ user['username'][0].upper() }}
+        </div>
+        <h3 style="margin-top: 1rem;">{{ user['username'] }}</h3>
+        <p style="color: var(--text-muted);">{{ user['role'] }}</p>
+    </div>
+
+    <div style="background: rgba(255, 255, 255, 0.05); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+        <div
+            style="display: flex; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
+            <strong style="color: var(--text-muted);">User ID:</strong>
+            <span>{{ user['id'] }}</span>
+        </div>
+        <div
+            style="display: flex; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
+            <strong style="color: var(--text-muted);">Email:</strong>
+            <span>{{ user['username'] }}</span>
+        </div>
+        <div
+            style="display: flex; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
+            <strong style="color: var(--text-muted);">Last Login:</strong>
+            <span>{{ user['last_login'] if user['last_login'] else 'Recently' }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <strong style="color: var(--text-muted);">Account Status:</strong>
+            <span class="text-success">Active</span>
+        </div>
+    </div>
+
+    <div style="text-align: center;">
+        <a href="{{ url_for('main.logout') }}" class="btn-danger">Logout</a>
+    </div>
+</div>
+{% endblock %}

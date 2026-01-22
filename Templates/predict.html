@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}Analyze Job - JobCheck{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+
+    <!-- BOX 1: Analyze Text -->
+    <div class="predict-box">
+        <div class="box-header">
+            <h2><span class="icon">📝</span> Analyze Text</h2>
+        </div>
+        <p class="box-desc">
+            Paste a job description below to detect if it's potentially fraudulent.
+        </p>
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <div class="form-group">
+                <textarea name="description" placeholder="Paste job description here..." required class="glass-input"
+                    style="min-height: 200px; resize: vertical;"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary"
+                style="width: 100%; display: flex; justify-content: center; gap: 0.5rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Analyze Now
+            </button>
+        </form>
+
+        <!-- Server-side Result -->
+        {% if result %}
+        <div class="result-container" style="margin-top: 2rem;">
+            {% if result == 'Real Job' %}
+            <div class="result-badge real">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                <span>Real Job Opportunity</span>
+            </div>
+            <div class="confidence-wrapper">
+                <div class="confidence-label">
+                    <span>Confidence Score</span>
+                    <span>{{ (100 - prob * 100)|round(1) }}% Safe</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill real" data-width="{{ (100 - prob * 100) }}%"></div>
+                </div>
+            </div>
+            {% elif result == 'Fake Job' %}
+            <div class="result-badge fake">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>Potential Fake Job</span>
+            </div>
+            <div class="confidence-wrapper">
+                <div class="confidence-label">
+                    <span>Risk Score</span>
+                    <span>{{ (prob * 100)|round(1) }}% Risk</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill fake" data-width="{{ (prob * 100) }}%"></div>
+                </div>
+                <p class="risk-warning">This job posting exhibits patterns common in fraudulent listings.</p>
+            </div>
+            {% else %}
+            <div class="result-card"
+                style="background: rgba(255, 255, 255, 0.1); border-left: 4px solid var(--text-color);">
+                {{ result }}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- BOX 2: Scan Image (Placeholder for now, fully functional backend) -->
+    <div class="predict-box">
+        <div class="box-header">
+            <h2><span class="icon">🖼️</span> Scan Image</h2>
+        </div>
+        <p class="box-desc">
+            Upload a screenshot of a job posting to analyze it directly.
+        </p>
+
+        <div class="upload-area" id="drop-zone">
+            <input type="file" id="jobPoster" accept="image/*" hidden onchange="handleFileSelect(this)">
+            <div class="upload-content" onclick="document.getElementById('jobPoster').click()">
+                <div class="upload-icon">📂</div>
+                <p>Click to Upload or Drag & Drop</p>
+                <span id="file-name" class="file-name">No file selected</span>
+            </div>
+        </div>
+
+        <button type="button" onclick="scanImage()" class="btn btn-secondary" id="scanBtn" disabled
+            style="width: 100%; margin-top: 1rem;">
+            Scan Image
+        </button>
+
+        <!-- Dynamic Visualization Area -->
+        <div class="image-result-area" style="margin-top: 1.5rem; display: none;" id="imgResultArea">
+            <label>Extracted Text:</label>
+            <div class="glass-output" id="extractedText"></div>
+            <div id="dynamic-result" style="margin-top: 1rem;"></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- CSS for this page specifically -->
+<!-- All styles now loaded from Static/styles.css -->
+
+<script>
+    function handleFileSelect(input) {
+        const fileNameSpan = document.getElementById('file-name');
+        const scanBtn = document.getElementById('scanBtn');
+
+        if (input.files && input.files[0]) {
+            fileNameSpan.textContent = input.files[0].name;
+            scanBtn.disabled = false;
+        } else {
+            fileNameSpan.textContent = "No file selected";
+            scanBtn.disabled = true;
+        }
+    }
+
+    // Drag and Drop Logic
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('jobPoster');
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect(fileInput);
+        }
+    });
+
+    function scanImage() {
+        let file = fileInput.files[0];
+        if (!file) return;
+
+        let formData = new FormData();
+        formData.append("file", file);
+
+        // Add CSRF Token
+        const csrfToken = document.querySelector('input[name="csrf_token"]');
+        if (csrfToken) {
+            formData.append("csrf_token", csrfToken.value);
+        }
+
+        const resultArea = document.getElementById('imgResultArea');
+        const extractedText = document.getElementById('extractedText');
+        const dynamicResult = document.getElementById('dynamic-result');
+        const scanBtn = document.getElementById('scanBtn');
+
+        resultArea.style.display = 'block';
+        extractedText.textContent = "Processing image...";
+        dynamicResult.innerHTML = '';
+        scanBtn.disabled = true;
+        scanBtn.textContent = 'Scanning...';
+
+        fetch('/scan-image', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => {
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    return response.json().then(data => {
+                        if (!response.ok) {
+                            throw new Error(data.error || 'Server Error');
+                        }
+                        return data;
+                    });
+                } else {
+                    return response.text().then(text => {
+                        console.error("Non-JSON Response:", text);
+                        throw new Error("Server returned an invalid response (not JSON). See console for details.");
+                    });
+                }
+            })
+            .then(data => {
+                scanBtn.disabled = false;
+                scanBtn.textContent = 'Scan Image';
+
+                if (data.error) {
+                    extractedText.innerHTML = `<span style="color: #f87171;">${data.error}</span>`;
+                } else {
+                    extractedText.textContent = data.extracted_text || "No readable text found.";
+
+                    // Reuse the same logic effectively by injecting HTML or simple text
+                    // Detailed visualization for JS is similar to server side logic
+                    let isReal = data.prediction === "Real Job";
+                    let prob = data.fake_probability;
+                    let percent = isReal ? (100 - prob * 100).toFixed(1) : (prob * 100).toFixed(1);
+                    let colorClass = isReal ? "real" : "fake";
+                    let badgeText = isReal ? "Real Job Opportunity" : "Potential Fake Job";
+
+                    dynamicResult.innerHTML = `
+                    <div class="result-badge ${colorClass}">
+                        <span>${badgeText}</span>
+                    </div>
+                     <div class="confidence-wrapper">
+                        <div class="confidence-label">
+                            <span>Score</span>
+                            <span>${percent}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill ${colorClass}" style="width: ${percent}%;"></div>
+                        </div>
+                    </div>
+                `;
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                scanBtn.disabled = false;
+                scanBtn.textContent = 'Scan Image';
+                extractedText.innerHTML = `<span style="color: #f87171;">Error: ${error.message}</span>`;
+            });
+    }
+
+    // Apply dynamic widths from data attributes to avoid inline style syntax errors in IDE
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.progress-fill').forEach(bar => {
+            const width = bar.getAttribute('data-width');
+            if (width) {
+                bar.style.width = width;
+            }
+        });
+    });
+</script>
+{% endblock %}

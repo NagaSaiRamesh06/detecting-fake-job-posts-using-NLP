@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Login - JobCheck{% endblock %}
+
+{% block content %}
+<div class="auth-box">
+    <div class="auth-header">
+        <h2>Welcome Back</h2>
+        <p>Enter your credentials to access your account</p>
+    </div>
+
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label for="username">Email or Username</label>
+            <div class="input-group">
+                <!-- Icon: User -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="input-icon">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <input type="text" id="username" name="username" placeholder="name@company.com" required
+                    autocomplete="off" style="padding-left: 2.5rem;">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <div class="input-group">
+                <!-- Icon: Lock -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="input-icon">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <input type="password" id="password" name="password" placeholder="Enter your password" required
+                    style="padding-left: 2.5rem;">
+                <button type="button" class="password-toggle" tabindex="-1">
+                    <!-- Icon: Eye -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <label class="remember-me">
+                <input type="checkbox" name="remember">
+                <span>Remember me</span>
+            </label>
+            <a href="{{ url_for('main.forgot_password') }}" class="forgot-password">Forgot Password?</a>
+        </div>
+
+        <button type="submit" class="btn">Sign In</button>
+
+        <div class="divider">
+            <span>OR CONTINUE WITH</span>
+        </div>
+
+        <a href="{{ url_for('main.login_google') }}" class="btn btn-social btn-google">
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" class="social-icon">
+            Sign in with Gmail
+        </a>
+        <a href="{{ url_for('main.login_github') }}" class="btn btn-social btn-github">
+            <img src="https://www.svgrepo.com/show/512317/github-142.svg" alt="GitHub" class="social-icon"
+                style="filter: invert(1);">
+            Sign in with GitHub
+        </a>
+    </form>
+
+    <div class="link-text">
+        <p>Don't have an account? <a href="{{ url_for('main.register') }}">Create Account</a></p>
+    </div>
+</div>
+{% endblock %}

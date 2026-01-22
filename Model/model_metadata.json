@@ -1,0 +1,12 @@
+{
+    "model_name": "Linear SVM",
+    "accuracy": 0.9697986577181208,
+    "f1_score": 0.6896551724137931,
+    "metrics": {
+        "Accuracy": 0.9697986577181208,
+        "Precision": 0.6629834254143646,
+        "Recall": 0.718562874251497,
+        "F1 Score": 0.6896551724137931,
+        "Model": "Linear SVM"
+    }
+}

@@ -1,0 +1,10 @@
+{
+    "models": {
+        "Logistic Regression": 0.9499440715883669,
+        "Naive Bayes": 0.9642058165548099,
+        "SVM": 0.9779082774049217
+    },
+    "active_model": "SVM",
+    "accuracy": 0.9779082774049217,
+    "trained_at": "2026-01-20 17:58:19"
+}

@@ -7,13 +7,8 @@ import pickle
 import cv2
 import pytesseract
 # Set Tesseract Path for Windows
-import os
-
-# Set Tesseract Path based on OS
-if os.name == 'nt': # Windows
+if os.name == 'nt':
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-else: # Linux / Cloud / Docker
-    pytesseract.pytesseract.tesseract_cmd = 'tesseract'
 from .database import get_db_connection
 from .config import Config
 import json

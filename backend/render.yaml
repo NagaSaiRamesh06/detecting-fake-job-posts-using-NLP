@@ -1,7 +1,6 @@
 services:
   - type: web
-    name: jobcheck
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn wsgi:app
+    name: jobcheck-backend
+    env: docker
     plan: free
+    healthCheckPath: /

@@ -1,102 +1,46 @@
 # JobCheck - Fake Job Prediction System
 
-![JobCheck Design](https://via.placeholder.com/800x300?text=JobCheck+AI+Dashboard)
+Welcome to the **JobCheck** project! JobCheck is an advanced, AI-powered web application designed to combat recruitment fraud by detecting fake job postings in real-time.
 
-**JobCheck** is an advanced, AI-powered web application designed to combat recruitment fraud. Leveraging Natural Language Processing (NLP) and Machine Learning, it detects fake job postings in real-time with **96% accuracy**. The system features a modern, professional "Glassmorphism" UI, OCR capabilities for image analysis, and a comprehensive admin dashboard.
+This project is structured into two main components:
 
-## ✨ Key Features
+- **[Backend](./backend/)**: A Flask-based API that handles Machine Learning predictions (Linear SVM, TF-IDF), Image OCR (Tesseract), User Authentication, and Database management.
+- **[Frontend](./frontend/)**: A modern, interactive user interface built with React and Vite.
 
--   **🤖 Advanced AI Model**:
-    -   Utilizes **TF-IDF Vectorization** for text feature extraction.
-    -   Powered by a **Linear SVM** (ranked as the best model via AutoML optimization).
-    -   Trained on a dataset of 18,000+ job descriptions.
--   **📷 Image Scanning (OCR)**:
-    -   Integrated with **Tesseract OCR** and **OpenCV**.
-    -   Allows users to upload screenshots of job ads for instant analysis.
--   **📊 Interactive Dashboard**:
-    -   Real-time classification confidence scores (Risk vs. Safety).
-    -   User-friendly interface with responsive sidebar navigation.
--   **🛡️ Secure Authentication**:
-    -   Robust Registration & Login (Session-based).
-    -   Password Strength Meter and Confirmation validation.
-    -   Admin Role management and secure backend routes.
--   **📈 Admin Analytics**:
-    -   Monitor system traffic, prediction logs, and model performance metrics (Accuracy, F1-Score).
+## 🚀 Getting Started
 
-## 🛠️ Tech Stack
+### 1. Start the Backend Server
 
--   **Backend**: Python, Flask, SQLite
--   **Frontend**: HTML5, CSS3 (Glassmorphism), JavaScript (Vanilla)
--   **Machine Learning**: Scikit-learn, Pandas, NumPy
--   **OCR**: Pytesseract, OpenCV
--   **Tools**: Git, Virtualenv
+Navigate to the `backend` directory and follow the setup instructions in the [Backend README](./backend/Readme.md).
 
-## 🚀 Installation & Setup
-
-### 1. Prerequisites
--   Python 3.9+ installed.
--   [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) installed (Path: `C:\Program Files\Tesseract-OCR\tesseract.exe`).
-
-### 2. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/JobCheck.git
-cd JobCheck
-```
-
-### 3. Create Virtual Environment
-```bash
+cd backend
 python -m venv .venv
-# Activate:
-.venv\Scripts\activate   # Windows
-source .venv/bin/activate # Mac/Linux
-```
-
-### 4. Install Dependencies
-```bash
+.venv\Scripts\activate
 pip install -r requirements.txt
+python wsgi.py
 ```
-*Key dependencies: `flask`, `scikit-learn`, `pandas`, `opencv-python`, `pytesseract`*
+*(Runs on `http://127.0.0.1:5000`)*
 
-### 5. Database Migration
-Initialize the database and apply the latest schema:
+### 2. Start the Frontend Development Server
+
+Navigate to the `frontend` directory and follow the instructions in the [Frontend README](./frontend/README.md).
+
 ```bash
-python migrate.py
+cd frontend
+npm install
+npm run dev
 ```
-
-## ▶️ Running the Application
-
-Start the Flask development server:
-```bash
-python -m App.app
-```
-
-Access the application at: **`http://127.0.0.1:5000`**
-
-### Test Credentials
--   **Admin User**: `admin` / `admin` (or registered email)
+*(Runs on `http://localhost:5173`)*
 
 ## 📂 Project Structure
 
 ```
 JobCheck/
-├── App/
-│   ├── app.py              # Main Application Entry Point
-│   ├── routes.py           # Flask Routes & API Logic
-│   ├── database.py         # DB Connection & Schema
-│   ├── data_processor.py   # NLP Preprocessing Pipeline
-│   ├── feature_engineering.py # TF-IDF Logic
-│   └── automl_sklearn.py   # Model Comparison Script
-├── Model/
-│   ├── best_model.pkl      # Trained Linear SVM Model
-│   ├── tfidf.pkl           # TF-IDF Vectorizer
-│   └── model_metadata.json # Performance Metrics
-├── Static/
-│   ├── styles.css          # Global Styles
-│   └── auth.js             # Client-side validation
-├── Templates/              # HTML Templates (Jinja2)
-├── users.db                # SQLite Database
-└── migrate.py              # Database Migration Tool
+├── backend/       # Flask backend API, Models, and Database
+└── frontend/      # React + Vite frontend application
 ```
 
-## 🤝 Contribution
-Developed for Academic Submission.
+## 🤝 Overview
+
+This system utilizes advanced NLP and ML to provide a highly accurate detection system. The frontend offers an elegant Glassmorphism UI, a dashboard for users, and a comprehensive admin panel for traffic and analytics monitoring.

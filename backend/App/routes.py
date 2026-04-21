@@ -685,3 +685,135 @@ def scan_image():
                    print("DEBUG: Cleanup successful") # DEBUG
                 except:
                    pass
+
+# ==========================================
+# NEW API ENDPOINTS FOR DECOUPLED FRONTEND
+# ==========================================
+
+@bp.route("/api/register", methods=["POST"])
+def api_register():
+    if not request.is_json:
+        return jsonify({"msg": "Missing JSON in request"}), 400
+
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+    fullname = data.get("fullname", "")
+
+    if not username or not password:
+        return jsonify({"msg": "Missing username or password"}), 400
+
+    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_regex, username):
+        return jsonify({"msg": "Invalid email format"}), 400
+
+    hashed_password = generate_password_hash(password)
+
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("INSERT INTO users (username, password, fullname) VALUES (?, ?, ?)", (username, hashed_password, fullname))
+        conn.commit()
+        conn.close()
+        return jsonify({"msg": "Registration successful"}), 201
+    except Exception:
+        return jsonify({"msg": "Email already registered"}), 409
+
+@bp.route("/api/me", methods=["GET"])
+@jwt_required()
+def api_me():
+    username = get_jwt_identity()
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT id, username, fullname, role, last_login FROM users WHERE username = ?", (username,))
+    user = c.fetchone()
+    conn.close()
+
+    if user:
+        return jsonify({
+            "id": user["id"],
+            "username": user["username"],
+            "fullname": user["fullname"],
+            "role": user["role"],
+            "last_login": user["last_login"]
+        }), 200
+    else:
+        return jsonify({"msg": "User not found"}), 404
+
+@bp.route("/api/dashboard", methods=["GET"])
+@jwt_required()
+def api_dashboard():
+    username = get_jwt_identity()
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT id FROM users WHERE username = ?", (username,))
+    user = c.fetchone()
+    
+    if not user:
+        conn.close()
+        return jsonify({"msg": "User not found"}), 404
+        
+    user_id = user['id']
+
+    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = ?", (user_id,))
+    total_scans = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = ? AND prediction_result LIKE 'Fake%'", (user_id,))
+    fake_found = c.fetchone()[0]
+    
+    real_found = total_scans - fake_found
+
+    c.execute("""
+        SELECT id, input_text, prediction_result, created_at 
+        FROM predictions 
+        WHERE user_id = ? 
+        ORDER BY id DESC LIMIT 20
+    """, (user_id,))
+    history = [{"id": row["id"], "input_text": row["input_text"], "prediction_result": row["prediction_result"], "created_at": row["created_at"]} for row in c.fetchall()]
+    
+    conn.close()
+
+    return jsonify({
+        "total_scans": total_scans,
+        "fake_found": fake_found,
+        "real_found": real_found,
+        "history": history
+    }), 200
+
+@bp.route("/api/admin", methods=["GET"])
+@jwt_required()
+def api_admin():
+    username = get_jwt_identity()
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT role FROM users WHERE username = ?", (username,))
+    user = c.fetchone()
+
+    if not user or user['role'] != 'ADMIN':
+        conn.close()
+        return jsonify({"msg": "Access Denied: Admins only"}), 403
+
+    c.execute("SELECT COUNT(*) FROM users WHERE role != 'ADMIN'")
+    total_users = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM users WHERE role = 'ADMIN'")
+    total_admins = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM predictions")
+    total_predictions = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM predictions WHERE prediction_result LIKE 'Fake%'")
+    fake_detected = c.fetchone()[0]
+
+    c.execute("SELECT id, username, fullname, role, last_login FROM users ORDER BY id DESC")
+    users = [{"id": row["id"], "username": row["username"], "fullname": row["fullname"], "role": row["role"], "last_login": row["last_login"]} for row in c.fetchall()]
+    
+    conn.close()
+
+    return jsonify({
+        "total_users": total_users,
+        "total_admins": total_admins,
+        "total_predictions": total_predictions,
+        "fake_detected": fake_detected,
+        "users": users
+    }), 200

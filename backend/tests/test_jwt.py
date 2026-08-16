@@ -4,8 +4,10 @@ import os
 import sys
 from werkzeug.security import generate_password_hash
 
-# Add current directory to path so we can import App
-sys.path.append(os.getcwd())
+# Add backend directory to sys.path
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if backend_dir not in sys.path:
+    sys.path.append(backend_dir)
 
 from App.app import create_app
 from App.config import Config
@@ -13,9 +15,10 @@ from App.database import init_db, get_db_connection
 
 class JWTTestCase(unittest.TestCase):
     def setUp(self):
-        # Use a separate test DB
+        # Use a separate test DB in the App folder
+        self.backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.test_db = "test_users.db"
-        Config.DB_PATH = os.path.join(os.getcwd(), "App", self.test_db)
+        Config.DB_PATH = os.path.join(self.backend_dir, "App", self.test_db)
         
         self.app = create_app()
         self.app.config['TESTING'] = True
@@ -36,7 +39,10 @@ class JWTTestCase(unittest.TestCase):
     def tearDown(self):
         # Clean up DB
         if os.path.exists(Config.DB_PATH):
-            os.remove(Config.DB_PATH)
+            try:
+                os.remove(Config.DB_PATH)
+            except OSError:
+                pass
 
     def test_jwt_flow(self):
         # 1. Try to access /predict without token
@@ -59,8 +65,8 @@ class JWTTestCase(unittest.TestCase):
         }
         # Note: /predict expects 'job_description'
         response = self.client.post('/predict', 
-                                  json={'job_description': 'This is a test job description for verification.'},
-                                  headers=headers)
+                                   json={'job_description': 'This is a test job description for verification.'},
+                                   headers=headers)
         self.assertEqual(response.status_code, 200)
         result = json.loads(response.data)
         self.assertIn('prediction', result)

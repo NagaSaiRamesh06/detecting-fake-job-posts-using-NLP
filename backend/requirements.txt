@@ -5,7 +5,7 @@ Authlib
 opencv-python-headless
 pytesseract
 scikit-learn
-numpy
+numpy<2.0.0
 pandas
 gunicorn
 requests

@@ -1,102 +1,101 @@
-# JobCheck - Fake Job Prediction System
+# JobCheck - Backend Service
 
-![JobCheck Design](https://via.placeholder.com/800x300?text=JobCheck+AI+Dashboard)
+This is the backend API and server-side rendering service for **JobCheck**, a web application designed to detect fake job postings using NLP, Machine Learning, and OCR.
 
-**JobCheck** is an advanced, AI-powered web application designed to combat recruitment fraud. Leveraging Natural Language Processing (NLP) and Machine Learning, it detects fake job postings in real-time with **96% accuracy**. The system features a modern, professional "Glassmorphism" UI, OCR capabilities for image analysis, and a comprehensive admin dashboard.
+## ✨ Features
 
-## ✨ Key Features
+- **Flask Application**: Modular structure serving Jinja2 templates and providing a JSON API for decoupled clients.
+- **AI Prediction Pipeline**: Text cleaning, TF-IDF Vectorization, and classification using a Linear SVM model.
+- **Image Scanning (OCR)**: Extracts text from images of job ads using OpenCV and Tesseract OCR.
+- **JWT & Role Authentication**: Dual session-based auth for templates and stateless JWT auth for the API.
+- **Database Logs**: SQLite integration for user registration, admin management, and audit logging of predictions.
 
--   **🤖 Advanced AI Model**:
-    -   Utilizes **TF-IDF Vectorization** for text feature extraction.
-    -   Powered by a **Linear SVM** (ranked as the best model via AutoML optimization).
-    -   Trained on a dataset of 18,000+ job descriptions.
--   **📷 Image Scanning (OCR)**:
-    -   Integrated with **Tesseract OCR** and **OpenCV**.
-    -   Allows users to upload screenshots of job ads for instant analysis.
--   **📊 Interactive Dashboard**:
-    -   Real-time classification confidence scores (Risk vs. Safety).
-    -   User-friendly interface with responsive sidebar navigation.
--   **🛡️ Secure Authentication**:
-    -   Robust Registration & Login (Session-based).
-    -   Password Strength Meter and Confirmation validation.
-    -   Admin Role management and secure backend routes.
--   **📈 Admin Analytics**:
-    -   Monitor system traffic, prediction logs, and model performance metrics (Accuracy, F1-Score).
+## 📂 Project Structure
 
-## 🛠️ Tech Stack
-
--   **Backend**: Python, Flask, SQLite
--   **Frontend**: HTML5, CSS3 (Glassmorphism), JavaScript (Vanilla)
--   **Machine Learning**: Scikit-learn, Pandas, NumPy
--   **OCR**: Pytesseract, OpenCV
--   **Tools**: Git, Virtualenv
-
-## 🚀 Installation & Setup
-
-### 1. Prerequisites
--   Python 3.9+ installed.
--   [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) installed (Path: `C:\Program Files\Tesseract-OCR\tesseract.exe`).
-
-### 2. Clone the Repository
-```bash
-git clone https://github.com/yourusername/JobCheck.git
-cd JobCheck
+```
+backend/
+├── App/                  # Core application package
+│   ├── app.py            # Flask app factory and initialization
+│   ├── config.py         # Application configuration & path constants
+│   ├── database.py       # Database connection setup & migrations
+│   ├── data_processor.py # Text preprocessing & dataset cleaning
+│   ├── routes.py         # Flask routes, prediction engine, & API endpoints
+│   └── users.db          # Local SQLite database (Git ignored)
+├── Dataset/              # Dataset directory
+│   └── fake_job_postings.csv # Training dataset
+├── Model/                # Trained models & metrics
+│   ├── best_model.pkl    # Trained Linear SVM classifier
+│   ├── tfidf.pkl         # Fitted TF-IDF Vectorizer
+│   └── model_metadata.json # Best model metrics
+├── Static/               # Static assets (CSS/JS)
+│   ├── auth.js           # Client-side form handlers & UI scripts
+│   ├── style.css         # Baseline style definitions
+│   └── styles.css        # Premium Glassmorphism styling rules
+├── Templates/            # Jinja2 HTML Templates
+│   ├── base.html         # Global layout and sidebar
+│   ├── login.html        # Login page
+│   ├── register.html     # Registration page
+│   ├── predict.html      # Job text analysis & image upload
+│   ├── dashboard.html    # User statistics and scan history
+│   ├── admin.html        # System analytics & user management
+│   └── profile.html      # User profile page
+├── Uploads/              # Temp directory for OCR files (Git ignored)
+├── tests/                # Test suite
+│   ├── __init__.py       # Package initializer
+│   ├── test_jwt.py       # JWT authentication and API tests
+│   ├── test_ocr.py       # Self-contained Tesseract OCR tests
+│   └── test_prediction.py # ML model prediction tests
+├── .env.example          # Environment variables configuration template
+├── Dockerfile            # Container definition
+├── Procfile              # Deployment commands (Heroku/Render)
+├── render.yaml           # Render deployment configuration
+├── requirements.txt      # Python dependencies
+└── wsgi.py               # WSGI application entry point
 ```
 
-### 3. Create Virtual Environment
+## 🛠️ Installation & Local Setup
+
+### 1. Prerequisites
+- Python 3.9+
+- [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) installed on your system. 
+  *On Windows, make sure it is installed at `C:\Program Files\Tesseract-OCR\tesseract.exe`.*
+
+### 2. Configure Environment Variables
+Copy `.env.example` to a new file named `.env`:
+```bash
+cp .env.example .env
+```
+Open `.env` and fill in your custom keys (e.g. `SECRET_KEY`, `JWT_SECRET_KEY`, etc.).
+
+### 3. Initialize Virtual Environment & Install Dependencies
+From the `backend/` directory:
 ```bash
 python -m venv .venv
 # Activate:
-.venv\Scripts\activate   # Windows
-source .venv/bin/activate # Mac/Linux
-```
+.venv\Scripts\activate      # Windows
+source .venv/bin/activate    # Mac/Linux
 
-### 4. Install Dependencies
-```bash
 pip install -r requirements.txt
 ```
-*Key dependencies: `flask`, `scikit-learn`, `pandas`, `opencv-python`, `pytesseract`*
 
-### 5. Database Migration
-Initialize the database and apply the latest schema:
+### 4. Run Database Migrations
+Initialize the SQLite database schema and generate the default admin user:
 ```bash
 python migrate.py
 ```
+*Default admin credentials: Username `admin`, Password `admin`.*
 
-## ▶️ Running the Application
+## ▶️ Running the Server
 
 Start the Flask development server:
 ```bash
 python -m App.app
 ```
+The server will start running on **`http://127.0.0.1:5000`**.
 
-Access the application at: **`http://127.0.0.1:5000`**
+## 🧪 Running Unit Tests
 
-### Test Credentials
--   **Admin User**: `admin` / `admin` (or registered email)
-
-## 📂 Project Structure
-
+Run the unit test suite containing authentication, OCR processing, and prediction tests:
+```bash
+python -m unittest discover -s tests
 ```
-JobCheck/
-├── App/
-│   ├── app.py              # Main Application Entry Point
-│   ├── routes.py           # Flask Routes & API Logic
-│   ├── database.py         # DB Connection & Schema
-│   ├── data_processor.py   # NLP Preprocessing Pipeline
-│   ├── feature_engineering.py # TF-IDF Logic
-│   └── automl_sklearn.py   # Model Comparison Script
-├── Model/
-│   ├── best_model.pkl      # Trained Linear SVM Model
-│   ├── tfidf.pkl           # TF-IDF Vectorizer
-│   └── model_metadata.json # Performance Metrics
-├── Static/
-│   ├── styles.css          # Global Styles
-│   └── auth.js             # Client-side validation
-├── Templates/              # HTML Templates (Jinja2)
-├── users.db                # SQLite Database
-└── migrate.py              # Database Migration Tool
-```
-
-## 🤝 Contribution
-Developed for Academic Submission.

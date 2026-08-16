@@ -1,7 +1,0 @@
-.
-----------------------------------------------------------------------
-Ran 1 test in 1.168s
-
-OK
-Models loaded successfully.
-Creating default admin user...

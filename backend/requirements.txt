@@ -10,3 +10,5 @@ pandas
 gunicorn
 requests
 flask-cors
+psycopg2-binary
+

@@ -1,18 +1,27 @@
-import sqlite3
 import os
+import sys
 
-DB_PATH = os.path.join(os.getcwd(), 'App/users.db')
+# Ensure backend directory is in sys.path
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+if backend_dir not in sys.path:
+    sys.path.append(backend_dir)
+
+from App.database import get_db_connection
 
 def update_schema():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    
     try:
-        # Check if column exists first to avoid error
-        c.execute("PRAGMA table_info(predictions)")
-        columns = [info[1] for info in c.fetchall()]
+        conn = get_db_connection()
+        c = conn.cursor()
         
-        if 'created_at' not in columns:
+        # Check if column exists in PostgreSQL
+        c.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'predictions' AND column_name = 'created_at'
+        """)
+        column_exists = c.fetchone() is not None
+        
+        if not column_exists:
             print("Adding 'created_at' column to predictions table...")
             c.execute("ALTER TABLE predictions ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
             conn.commit()
@@ -20,10 +29,10 @@ def update_schema():
         else:
             print("'created_at' column already exists.")
             
+        c.close()
+        conn.close()
     except Exception as e:
         print(f"Error updating schema: {e}")
-        
-    conn.close()
 
 if __name__ == "__main__":
     update_schema()

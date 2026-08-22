@@ -7,7 +7,9 @@ class Config:
     # Path setup
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'Uploads')
-    DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
+    
+    # Database config
+    DATABASE_URL = os.environ.get('DATABASE_URL')
     
     # Model Paths
     MODEL_DIR = os.path.join(BASE_DIR, "Model")

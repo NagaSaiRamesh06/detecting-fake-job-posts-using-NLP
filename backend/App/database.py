@@ -1,70 +1,81 @@
-import sqlite3
+import psycopg2
+import psycopg2.extensions
 from werkzeug.security import generate_password_hash
 from .config import Config
 
+class DictAndTupleRow(dict):
+    def __init__(self, cursor, row):
+        super().__init__()
+        self._keys = [desc[0] for desc in cursor.description] if cursor.description else []
+        self._values = row
+        for key, val in zip(self._keys, row):
+            self[key] = val
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._values[key]
+        return super().__getitem__(key)
+
+class DictAndTupleCursor(psycopg2.extensions.cursor):
+    def fetchone(self):
+        row = super().fetchone()
+        if row is None:
+            return None
+        return DictAndTupleRow(self, row)
+
+    def fetchall(self):
+        rows = super().fetchall()
+        return [DictAndTupleRow(self, row) for row in rows]
+
+    def fetchmany(self, size=None):
+        rows = super().fetchmany(size)
+        return [DictAndTupleRow(self, row) for row in rows]
+
 def get_db_connection():
-    conn = sqlite3.connect(Config.DB_PATH)
-    conn.row_factory = sqlite3.Row
+    db_url = Config.DATABASE_URL
+    if not db_url:
+        raise ValueError("DATABASE_URL environment variable is not set.")
+    
+    # Render database URLs sometimes start with postgres://, which is compatible but let's normalize it to postgresql://
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+        
+    conn = psycopg2.connect(db_url, cursor_factory=DictAndTupleCursor)
     return conn
 
 def init_db():
     conn = get_db_connection()
     c = conn.cursor()
     
-    # Enable Foreign Keys
-    c.execute("PRAGMA foreign_keys = ON")
-
-    # 1. Users Table (Updated Schema)
-    # We use a try-catch pattern to add columns if they don't exist (Simple Migration)
+    # 1. Users Table (PostgreSQL Schema)
     c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                  username TEXT UNIQUE, 
-                  password TEXT,
-                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+                 (id SERIAL PRIMARY KEY, 
+                  username VARCHAR(255) UNIQUE, 
+                  password VARCHAR(255),
+                  role VARCHAR(50) DEFAULT 'USER',
+                  last_login VARCHAR(50),
+                  name VARCHAR(255),
+                  fullname VARCHAR(255),
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'USER'")
-    except sqlite3.OperationalError:
-        pass # Column likely exists
-
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN last_login TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN name TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN fullname TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP")
-    except sqlite3.OperationalError:
-        pass
-
-    # 2. Predictions Table (New)
+    # 2. Predictions Table (PostgreSQL Schema)
     c.execute('''CREATE TABLE IF NOT EXISTS predictions
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                  user_id INTEGER, 
+                 (id SERIAL PRIMARY KEY, 
+                  user_id INTEGER REFERENCES users(id), 
                   input_text TEXT, 
-                  prediction_result TEXT, 
-                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                  FOREIGN KEY(user_id) REFERENCES users(id))''')
+                  prediction_result VARCHAR(255), 
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
     # Check if admin exists, if not create one
     c.execute("SELECT * FROM users WHERE username = 'admin'")
     if not c.fetchone():
         print("Creating default admin user...")
-        c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", 
+        c.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)", 
                   ('admin', generate_password_hash('admin'), 'ADMIN'))
     else:
         # Ensure existing admin has ADMIN role
         c.execute("UPDATE users SET role = 'ADMIN' WHERE username = 'admin'")
     
     conn.commit()
+    c.close()
     conn.close()

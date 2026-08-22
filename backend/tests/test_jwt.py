@@ -15,33 +15,35 @@ from App.database import init_db, get_db_connection
 
 class JWTTestCase(unittest.TestCase):
     def setUp(self):
-        # Use a separate test DB in the App folder
-        self.backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.test_db = "test_users.db"
-        Config.DB_PATH = os.path.join(self.backend_dir, "App", self.test_db)
-        
         self.app = create_app()
         self.app.config['TESTING'] = True
         self.app.config['WTF_CSRF_ENABLED'] = False # Disable CSRF for API tests
         self.client = self.app.test_client()
         
-        # Initialize DB
+        # Initialize DB and seed test user
         with self.app.app_context():
             init_db()
             conn = get_db_connection()
             c = conn.cursor()
-            # Create test user
-            c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", 
+            # Clear test user if already exists to ensure a clean insert
+            c.execute("DELETE FROM users WHERE username = %s", ('jwtuser',))
+            c.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)", 
                       ('jwtuser', generate_password_hash('testpassword'), 'USER'))
             conn.commit()
+            c.close()
             conn.close()
 
     def tearDown(self):
-        # Clean up DB
-        if os.path.exists(Config.DB_PATH):
+        # Clean up database records
+        with self.app.app_context():
             try:
-                os.remove(Config.DB_PATH)
-            except OSError:
+                conn = get_db_connection()
+                c = conn.cursor()
+                c.execute("DELETE FROM users WHERE username = %s", ('jwtuser',))
+                conn.commit()
+                c.close()
+                conn.close()
+            except Exception:
                 pass
 
     def test_jwt_flow(self):

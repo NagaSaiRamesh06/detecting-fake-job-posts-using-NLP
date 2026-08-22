@@ -53,50 +53,77 @@ except Exception as e:
 @bp.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
 
-        conn = get_db_connection()
-        c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username = ?", (username,))
-        user = c.fetchone()
-        conn.close()
-        
-        print(f"LOGIN DEBUG - Username: {username}")
-        print(f"LOGIN DEBUG - User found: {user is not None}")
+        print(f"LOGIN DEBUG: username received = [{username}]")
 
-        if user:
-            print(f"LOGIN DEBUG - Stored username: {user['username']}")
-            print(f"LOGIN DEBUG - Password check: {check_password_hash(user['password'], password)}")
-        
-        if user and check_password_hash(user['password'], password):
-            session['user_id'] = user['id']
-            session['username'] = user['username']
-            session['role'] = user['role'] if user['role'] else 'USER'
-            
-            # Remember Me
-            if request.form.get("remember"):
-                session.permanent = True
-                # current_app.permanent_session_lifetime handled by config or default (31 days)
-            
-            # Update Last Login
-            from datetime import datetime
-            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
             conn = get_db_connection()
-            conn.execute("UPDATE users SET last_login = ? WHERE id = ?", (current_time, user['id']))
-            conn.commit()
+            c = conn.cursor()
+
+            c.execute(
+                "SELECT id, username, password, role FROM users WHERE username = %s",
+                (username,)
+            )
+            user = c.fetchone()
+
+            print(f"LOGIN DEBUG: user found = {user is not None}")
+
+            if user:
+                print(f"LOGIN DEBUG: database username = [{user['username']}]")
+                print(f"LOGIN DEBUG: password hash exists = {bool(user['password'])}")
+
+                password_ok = check_password_hash(
+                    user['password'],
+                    password
+                )
+
+                print(f"LOGIN DEBUG: password match = {password_ok}")
+
+            else:
+                password_ok = False
+
+            c.close()
             conn.close()
 
-            # flash('Logged in successfully!', 'success') # Optional: Add nicer notification
-            
-            # Redirect Admins to Dashboard directly? Or just predict page.
-            # user['role'] is reachable via another query or if we selected *
-            if user['role'] == 'ADMIN':
-                 return redirect(url_for("main.admin"))
-            
-            return redirect(url_for("main.dashboard"))
-        else:
+            if user and password_ok:
+
+                session['user_id'] = user['id']
+                session['username'] = user['username']
+                session['role'] = user['role'] or 'USER'
+
+                from datetime import datetime
+                current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                conn = get_db_connection()
+                c = conn.cursor()
+
+                c.execute(
+                    "UPDATE users SET last_login = %s WHERE id = %s",
+                    (current_time, user['id'])
+                )
+
+                conn.commit()
+                c.close()
+                conn.close()
+
+                print("LOGIN DEBUG: LOGIN SUCCESS")
+
+                if user['role'] == 'ADMIN':
+                    return redirect(url_for("main.admin"))
+
+                return redirect(url_for("main.dashboard"))
+
+            print("LOGIN DEBUG: LOGIN FAILED")
+
             flash('Invalid username or password', 'error')
+            return render_template("login.html")
+
+        except Exception as e:
+            print(f"LOGIN DEBUG ERROR: {type(e).__name__}: {e}")
+
+            flash("Login server error. Please try again.", "error")
             return render_template("login.html")
 
     return render_template("login.html")
@@ -158,7 +185,7 @@ def auth_github():
 def handle_oauth_login(email, name):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username = ?", (email,))
+    c.execute("SELECT * FROM users WHERE username = %s", (email,))
     user = c.fetchone()
     
     if user:
@@ -170,7 +197,7 @@ def handle_oauth_login(email, name):
         # Update Last Login
         from datetime import datetime
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        c.execute("UPDATE users SET last_login = ? WHERE id = ?", (current_time, user['id']))
+        c.execute("UPDATE users SET last_login = %s WHERE id = %s", (current_time, user['id']))
         conn.commit()
     else:
         # Register new user automatically
@@ -180,17 +207,18 @@ def handle_oauth_login(email, name):
         random_password = str(uuid.uuid4())
         hashed_password = generate_password_hash(random_password)
         
-        c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, 'USER')", (email, hashed_password))
+        c.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, 'USER')", (email, hashed_password))
         conn.commit()
         
         # Get ID
-        c.execute("SELECT * FROM users WHERE username = ?", (email,))
+        c.execute("SELECT * FROM users WHERE username = %s", (email,))
         user = c.fetchone()
         
         session['user_id'] = user['id']
         session['username'] = user['username']
         session['role'] = 'USER'
     
+    c.close()
     conn.close()
     
     if session.get('role') == 'ADMIN':
@@ -230,8 +258,9 @@ def api_login():
 
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username = ?", (username,))
+    c.execute("SELECT * FROM users WHERE username = %s", (username,))
     user = c.fetchone()
+    c.close()
     conn.close()
 
     if user and check_password_hash(user['password'], password):
@@ -275,8 +304,9 @@ def register():
             fullname = request.form.get("fullname")
             conn = get_db_connection()
             c = conn.cursor()
-            c.execute("INSERT INTO users (username, password, fullname) VALUES (?, ?, ?)", (username, hashed_password, fullname))
+            c.execute("INSERT INTO users (username, password, fullname) VALUES (%s, %s, %s)", (username, hashed_password, fullname))
             conn.commit()
+            c.close()
             conn.close()
             flash('Registration successful! Please login.', 'success')
             return redirect(url_for("main.login"))
@@ -344,9 +374,10 @@ def get_prediction(text):
         try:
             conn = get_db_connection()
             c = conn.cursor()
-            c.execute("INSERT INTO predictions (user_id, input_text, prediction_result) VALUES (?, ?, ?)",
+            c.execute("INSERT INTO predictions (user_id, input_text, prediction_result) VALUES (%s, %s, %s)",
                       (session['user_id'], text, result)) # Log full text
             conn.commit()
+            c.close()
             conn.close()
         except Exception as e:
             print(f"Logging error: {e}")
@@ -385,8 +416,9 @@ def is_admin():
         return False
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT role FROM users WHERE id = ?", (session['user_id'],))
+    c.execute("SELECT role FROM users WHERE id = %s", (session['user_id'],))
     user = c.fetchone()
+    c.close()
     conn.close()
     return user and user['role'] == 'ADMIN'
 
@@ -436,9 +468,9 @@ def admin():
     # 4. Fetch Activity Graph Data (Last 30 Days)
     # SQLite DATE() returns YYYY-MM-DD. 
     c.execute("""
-        SELECT DATE(created_at) as date, COUNT(*) as count 
+        SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, COUNT(*) as count 
         FROM predictions 
-        GROUP BY date 
+        GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD') 
         ORDER BY date ASC 
         LIMIT 30
     """)
@@ -498,10 +530,10 @@ def dashboard():
     user_id = session['user_id']
 
     # 1. Fetch User Stats
-    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = ?", (user_id,))
+    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = %s", (user_id,))
     total_scans = c.fetchone()[0]
 
-    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = ? AND prediction_result LIKE 'Fake%'", (user_id,))
+    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = %s AND prediction_result LIKE 'Fake%'", (user_id,))
     fake_found = c.fetchone()[0]
     
     real_found = total_scans - fake_found
@@ -510,7 +542,7 @@ def dashboard():
     c.execute("""
         SELECT id, input_text, prediction_result, created_at 
         FROM predictions 
-        WHERE user_id = ? 
+        WHERE user_id = %s 
         ORDER BY id DESC LIMIT 20
     """, (user_id,))
     history = c.fetchall()
@@ -530,8 +562,9 @@ def promote_user(user_id):
     
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("UPDATE users SET role = 'ADMIN' WHERE id = ?", (user_id,))
+    c.execute("UPDATE users SET role = 'ADMIN' WHERE id = %s", (user_id,))
     conn.commit()
+    c.close()
     conn.close()
     
     flash("User promoted to Admin successfully!", "success")
@@ -549,8 +582,9 @@ def demote_user(user_id):
 
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("UPDATE users SET role = 'USER' WHERE id = ?", (user_id,))
+    c.execute("UPDATE users SET role = 'USER' WHERE id = %s", (user_id,))
     conn.commit()
+    c.close()
     conn.close()
     
     flash("Admin demoted to User successfully!", "success")
@@ -566,8 +600,9 @@ def profile():
     
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE id = ?", (session['user_id'],))
+    c.execute("SELECT * FROM users WHERE id = %s", (session['user_id'],))
     user = c.fetchone()
+    c.close()
     conn.close()
     
     if not user:
@@ -721,8 +756,9 @@ def api_register():
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute("INSERT INTO users (username, password, fullname) VALUES (?, ?, ?)", (username, hashed_password, fullname))
+        c.execute("INSERT INTO users (username, password, fullname) VALUES (%s, %s, %s)", (username, hashed_password, fullname))
         conn.commit()
+        c.close()
         conn.close()
         return jsonify({"msg": "Registration successful"}), 201
     except Exception:
@@ -734,8 +770,9 @@ def api_me():
     username = get_jwt_identity()
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT id, username, fullname, role, last_login FROM users WHERE username = ?", (username,))
+    c.execute("SELECT id, username, fullname, role, last_login FROM users WHERE username = %s", (username,))
     user = c.fetchone()
+    c.close()
     conn.close()
 
     if user:
@@ -755,19 +792,20 @@ def api_dashboard():
     username = get_jwt_identity()
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT id FROM users WHERE username = ?", (username,))
+    c.execute("SELECT id FROM users WHERE username = %s", (username,))
     user = c.fetchone()
     
     if not user:
+        c.close()
         conn.close()
         return jsonify({"msg": "User not found"}), 404
         
     user_id = user['id']
 
-    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = ?", (user_id,))
+    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = %s", (user_id,))
     total_scans = c.fetchone()[0]
 
-    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = ? AND prediction_result LIKE 'Fake%'", (user_id,))
+    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = %s AND prediction_result LIKE 'Fake%'", (user_id,))
     fake_found = c.fetchone()[0]
     
     real_found = total_scans - fake_found
@@ -775,11 +813,12 @@ def api_dashboard():
     c.execute("""
         SELECT id, input_text, prediction_result, created_at 
         FROM predictions 
-        WHERE user_id = ? 
+        WHERE user_id = %s 
         ORDER BY id DESC LIMIT 20
     """, (user_id,))
     history = [{"id": row["id"], "input_text": row["input_text"], "prediction_result": row["prediction_result"], "created_at": row["created_at"]} for row in c.fetchall()]
     
+    c.close()
     conn.close()
 
     return jsonify({
@@ -795,10 +834,11 @@ def api_admin():
     username = get_jwt_identity()
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT role FROM users WHERE username = ?", (username,))
+    c.execute("SELECT role FROM users WHERE username = %s", (username,))
     user = c.fetchone()
 
     if not user or user['role'] != 'ADMIN':
+        c.close()
         conn.close()
         return jsonify({"msg": "Access Denied: Admins only"}), 403
 
@@ -817,6 +857,7 @@ def api_admin():
     c.execute("SELECT id, username, fullname, role, last_login FROM users ORDER BY id DESC")
     users = [{"id": row["id"], "username": row["username"], "fullname": row["fullname"], "role": row["role"], "last_login": row["last_login"]} for row in c.fetchall()]
     
+    c.close()
     conn.close()
 
     return jsonify({

@@ -61,7 +61,14 @@ def login():
         c.execute("SELECT * FROM users WHERE username = ?", (username,))
         user = c.fetchone()
         conn.close()
+        
+        print(f"LOGIN DEBUG - Username: {username}")
+        print(f"LOGIN DEBUG - User found: {user is not None}")
 
+        if user:
+            print(f"LOGIN DEBUG - Stored username: {user['username']}")
+            print(f"LOGIN DEBUG - Password check: {check_password_hash(user['password'], password)}")
+        
         if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
             session['username'] = user['username']

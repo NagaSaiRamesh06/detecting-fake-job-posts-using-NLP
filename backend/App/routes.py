@@ -432,17 +432,17 @@ def admin():
     c = conn.cursor()
 
     # 1. Fetch Stats
-    c.execute("SELECT COUNT(*) FROM users WHERE role != 'ADMIN'")
-    total_users = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM users WHERE role != 'ADMIN'")
+    total_users = c.fetchone()["count"]
 
-    c.execute("SELECT COUNT(*) FROM users WHERE role = 'ADMIN'")
-    total_admins = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM users WHERE role = 'ADMIN'")
+    total_admins = c.fetchone()["count"]
 
-    c.execute("SELECT COUNT(*) FROM predictions")
-    total_predictions = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM predictions")
+    total_predictions = c.fetchone()["count"]
 
-    c.execute("SELECT COUNT(*) FROM predictions WHERE prediction_result LIKE 'Fake%'")
-    fake_detected = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE prediction_result LIKE 'Fake%'")
+    fake_detected = c.fetchone()["count"]
 
     real_detected = total_predictions - fake_detected
     
@@ -530,11 +530,11 @@ def dashboard():
     user_id = session['user_id']
 
     # 1. Fetch User Stats
-    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = %s", (user_id,))
-    total_scans = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE user_id = %s", (user_id,))
+    total_scans = c.fetchone()["count"]
 
-    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = %s AND prediction_result LIKE 'Fake%'", (user_id,))
-    fake_found = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE user_id = %s AND prediction_result LIKE 'Fake%'", (user_id,))
+    fake_found = c.fetchone()["count"]
     
     real_found = total_scans - fake_found
 
@@ -802,11 +802,11 @@ def api_dashboard():
         
     user_id = user['id']
 
-    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = %s", (user_id,))
-    total_scans = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE user_id = %s", (user_id,))
+    total_scans = c.fetchone()["count"]
 
-    c.execute("SELECT COUNT(*) FROM predictions WHERE user_id = %s AND prediction_result LIKE 'Fake%'", (user_id,))
-    fake_found = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE user_id = %s AND prediction_result LIKE 'Fake%'", (user_id,))
+    fake_found = c.fetchone()["count"]
     
     real_found = total_scans - fake_found
 
@@ -842,17 +842,17 @@ def api_admin():
         conn.close()
         return jsonify({"msg": "Access Denied: Admins only"}), 403
 
-    c.execute("SELECT COUNT(*) FROM users WHERE role != 'ADMIN'")
-    total_users = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM users WHERE role != 'ADMIN'")
+    total_users = c.fetchone()["count"]
 
-    c.execute("SELECT COUNT(*) FROM users WHERE role = 'ADMIN'")
-    total_admins = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM users WHERE role = 'ADMIN'")
+    total_admins = c.fetchone()["count"]
 
-    c.execute("SELECT COUNT(*) FROM predictions")
-    total_predictions = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM predictions")
+    total_predictions = c.fetchone()["count"]
 
-    c.execute("SELECT COUNT(*) FROM predictions WHERE prediction_result LIKE 'Fake%'")
-    fake_detected = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE prediction_result LIKE 'Fake%'")
+    fake_detected = c.fetchone()["count"]
 
     c.execute("SELECT id, username, fullname, role, last_login FROM users ORDER BY id DESC")
     users = [{"id": row["id"], "username": row["username"], "fullname": row["fullname"], "role": row["role"], "last_login": row["last_login"]} for row in c.fetchall()]

@@ -1,5 +1,4 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, session
-from authlib.integrations.flask_client import OAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import os
@@ -17,27 +16,6 @@ import json
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
 bp = Blueprint('main', __name__)
-oauth = OAuth()
-
-# Register Clients
-# Note: Client ID and Secret are loaded from app.config (Config object) automatically by Authlib
-# if named {NAME}_CLIENT_ID and {NAME}_CLIENT_SECRET
-
-# Google
-google = oauth.register(
-    name='google',
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={'scope': 'openid email profile'}
-)
-
-# GitHub
-github = oauth.register(
-    name='github',
-    api_base_url='https://api.github.com/',
-    access_token_url='https://github.com/login/oauth/access_token',
-    authorize_url='https://github.com/login/oauth/authorize',
-    client_kwargs={'scope': 'user:email'},
-)
 
 # Load Models (Global to the module for performance)
 # In a production app, we might lazy load or use a dedicated service.
@@ -49,6 +27,10 @@ except Exception as e:
     print(f"Error loading models: {e}")
     tfidf = None
     model = None
+
+@bp.route('/favicon.ico')
+def favicon():
+    return current_app.send_static_file('favicon.ico')
 
 @bp.route("/", methods=["GET", "POST"])
 def login():
@@ -128,104 +110,6 @@ def login():
 
     return render_template("login.html")
 
-# OAuth Routes
-@bp.route('/login/google')
-def login_google():
-    redirect_uri = url_for('main.auth_google', _external=True)
-    return google.authorize_redirect(redirect_uri)
-
-@bp.route('/auth/google')
-def auth_google():
-    try:
-        token = google.authorize_access_token()
-        user_info = google.userinfo()
-        # user_info contains 'email', 'name', 'picture' etc.
-        email = user_info.get('email')
-        name = user_info.get('name') or email.split('@')[0]
-        
-        return handle_oauth_login(email, name)
-    except Exception as e:
-        flash(f"Google Login Failed: {str(e)}", "error")
-        return redirect(url_for("main.login"))
-
-@bp.route('/login/github')
-def login_github():
-    redirect_uri = url_for('main.auth_github', _external=True)
-    return github.authorize_redirect(redirect_uri)
-
-@bp.route('/auth/github')
-def auth_github():
-    try:
-        token = github.authorize_access_token()
-        # GitHub API to get user info
-        resp = github.get('user', token=token)
-        profile = resp.json()
-        
-        email = profile.get('email')
-        # If email is private, we need another call
-        if not email:
-             resp_emails = github.get('user/emails', token=token)
-             emails = resp_emails.json()
-             for e in emails:
-                 if e.get('primary') and e.get('verified'):
-                     email = e.get('email')
-                     break
-        
-        name = profile.get('name') or profile.get('login') or "GitHub User"
-        
-        if not email:
-             flash("Could not retrieve email from GitHub.", "error")
-             return redirect(url_for("main.login"))
-
-        return handle_oauth_login(email, name)
-    except Exception as e:
-         flash(f"GitHub Login Failed: {str(e)}", "error")
-         return redirect(url_for("main.login"))
-
-def handle_oauth_login(email, name):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username = %s", (email,))
-    user = c.fetchone()
-    
-    if user:
-        # User exists, log them in
-        session['user_id'] = user['id']
-        session['username'] = user['username']
-        session['role'] = user['role'] if user['role'] else 'USER'
-        
-        # Update Last Login
-        from datetime import datetime
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        c.execute("UPDATE users SET last_login = %s WHERE id = %s", (current_time, user['id']))
-        conn.commit()
-    else:
-        # Register new user automatically
-        # Since it's OAuth, we can set a random unusable password or separate logic.
-        # Here we just set a random hash so they can't login via password unless they reset it.
-        import uuid
-        random_password = str(uuid.uuid4())
-        hashed_password = generate_password_hash(random_password)
-        
-        c.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, 'USER')", (email, hashed_password))
-        conn.commit()
-        
-        # Get ID
-        c.execute("SELECT * FROM users WHERE username = %s", (email,))
-        user = c.fetchone()
-        
-        session['user_id'] = user['id']
-        session['username'] = user['username']
-        session['role'] = 'USER'
-    
-    c.close()
-    conn.close()
-    
-    if session.get('role') == 'ADMIN':
-        return redirect(url_for("main.admin"))
-        
-    return redirect(url_for("main.ui_predict"))
-
 @bp.route("/logout")
 def logout():
     session.clear()
@@ -285,6 +169,12 @@ def register():
             flash('Passwords do not match', 'error')
             return render_template("register.html")
 
+        # Check against reserved admin username
+        admin_username = getattr(Config, 'ADMIN_USERNAME', 'admin')
+        if username.strip().lower() == admin_username.lower():
+            flash('This username is reserved and cannot be registered.', 'error')
+            return render_template("register.html")
+
         # 2. Validate Email Format (Regex)
         email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(email_regex, username):
@@ -304,7 +194,7 @@ def register():
             fullname = request.form.get("fullname")
             conn = get_db_connection()
             c = conn.cursor()
-            c.execute("INSERT INTO users (username, password, fullname) VALUES (%s, %s, %s)", (username, hashed_password, fullname))
+            c.execute("INSERT INTO users (username, password, fullname, role) VALUES (%s, %s, %s, 'USER')", (username, hashed_password, fullname))
             conn.commit()
             c.close()
             conn.close()
@@ -513,7 +403,8 @@ def admin():
                          recent_logs=recent_logs,
                          model_meta=model_meta,
                          activity_dates=json.dumps(activity_dates),
-                         activity_counts=json.dumps(activity_counts))
+                         activity_counts=json.dumps(activity_counts),
+                         admin_username=getattr(Config, 'ADMIN_USERNAME', 'admin'))
 
 @bp.route("/dashboard")
 def dashboard():
@@ -560,14 +451,7 @@ def promote_user(user_id):
     if not is_admin():
         return redirect(url_for("main.login"))
     
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("UPDATE users SET role = 'ADMIN' WHERE id = %s", (user_id,))
-    conn.commit()
-    c.close()
-    conn.close()
-    
-    flash("User promoted to Admin successfully!", "success")
+    flash("Action not allowed: JobCheck allows only one administrator account.", "warning")
     return redirect(url_for("main.admin"))
 
 @bp.route("/demote/<int:user_id>")
@@ -575,22 +459,28 @@ def demote_user(user_id):
     if not is_admin():
         return redirect(url_for("main.login"))
     
-    # Prevent self-demotion (optional but good practice)
+    # Prevent self-demotion
     if user_id == session.get('user_id'):
-         flash("You cannot demote yourself!", "error")
-         return redirect(url_for("main.admin"))
+        flash("You cannot demote yourself!", "error")
+        return redirect(url_for("main.admin"))
 
     conn = get_db_connection()
     c = conn.cursor()
+    c.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+    target = c.fetchone()
+    admin_user = getattr(Config, 'ADMIN_USERNAME', 'admin')
+    if target and target['username'] == admin_user:
+        c.close()
+        conn.close()
+        flash("The primary admin account cannot be demoted.", "error")
+        return redirect(url_for("main.admin"))
+
     c.execute("UPDATE users SET role = 'USER' WHERE id = %s", (user_id,))
     conn.commit()
     c.close()
     conn.close()
     
-    flash("Admin demoted to User successfully!", "success")
-    return redirect(url_for("main.admin"))
-
-    flash("Admin demoted to User successfully!", "success")
+    flash("User role set to USER successfully!", "success")
     return redirect(url_for("main.admin"))
 
 @bp.route("/profile")
@@ -747,6 +637,10 @@ def api_register():
     if not username or not password:
         return jsonify({"msg": "Missing username or password"}), 400
 
+    admin_username = getattr(Config, 'ADMIN_USERNAME', 'admin')
+    if username.strip().lower() == admin_username.lower():
+        return jsonify({"msg": "This username is reserved and cannot be registered"}), 400
+
     email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(email_regex, username):
         return jsonify({"msg": "Invalid email format"}), 400
@@ -756,7 +650,7 @@ def api_register():
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute("INSERT INTO users (username, password, fullname) VALUES (%s, %s, %s)", (username, hashed_password, fullname))
+        c.execute("INSERT INTO users (username, password, fullname, role) VALUES (%s, %s, %s, 'USER')", (username, hashed_password, fullname))
         conn.commit()
         c.close()
         conn.close()

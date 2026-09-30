@@ -121,11 +121,12 @@
                             </td>
                             <td>
                                 {% if user['role'] == 'USER' %}
-                                <a href="{{ url_for('main.promote_user', user_id=user['id']) }}"
-                                    class="btn-sm btn-promote">Promote</a>
-                                {% elif user['role'] == 'ADMIN' and user['id'] != session['user_id'] %}
+                                <span style="font-size: 0.85rem; color: var(--text-muted);">Standard User</span>
+                                {% elif user['role'] == 'ADMIN' and user['username'] != admin_username %}
                                 <a href="{{ url_for('main.demote_user', user_id=user['id']) }}"
                                     class="btn-sm btn-demote">Demote</a>
+                                {% else %}
+                                <span style="font-size: 0.85rem; color: var(--accent-color); font-weight: 500;">Primary Admin</span>
                                 {% endif %}
                             </td>
                         </tr>

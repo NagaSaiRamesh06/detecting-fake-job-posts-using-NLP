@@ -191,12 +191,6 @@ SECRET_KEY=your-secure-secret-key-here
 
 # JWT configuration
 JWT_SECRET_KEY=your-jwt-secret-key-here
-
-# Optional OAuth keys (OAuth logic uses standard authlib settings)
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
 ```
 > [!IMPORTANT]
 > Never commit your actual `.env` file containing secrets to GitHub.

@@ -1,7 +1,6 @@
 Flask
 Flask-WTF
 Flask-JWT-Extended
-Authlib
 opencv-python-headless
 pytesseract
 scikit-learn

@@ -28,6 +28,20 @@ except Exception as e:
     tfidf = None
     model = None
 
+def extract_count(row):
+    """Safely extract count integer from database cursor row types (DictAndTupleRow, sqlite3.Row, tuple, dict)."""
+    if row is None:
+        return 0
+    if isinstance(row, (int, float)):
+        return int(row)
+    try:
+        try:
+            return int(row["count"])
+        except (KeyError, IndexError, TypeError):
+            return int(row[0])
+    except Exception:
+        return 0
+
 @bp.route('/favicon.ico')
 def favicon():
     return current_app.send_static_file('favicon.ico')
@@ -323,16 +337,16 @@ def admin():
 
     # 1. Fetch Stats
     c.execute("SELECT COUNT(*) AS count FROM users WHERE role != 'ADMIN'")
-    total_users = c.fetchone()["count"]
+    total_users = extract_count(c.fetchone())
 
     c.execute("SELECT COUNT(*) AS count FROM users WHERE role = 'ADMIN'")
-    total_admins = c.fetchone()["count"]
+    total_admins = extract_count(c.fetchone())
 
     c.execute("SELECT COUNT(*) AS count FROM predictions")
-    total_predictions = c.fetchone()["count"]
+    total_predictions = extract_count(c.fetchone())
 
-    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE prediction_result LIKE 'Fake%'")
-    fake_detected = c.fetchone()["count"]
+    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE prediction_result LIKE %s", ('Fake%',))
+    fake_detected = extract_count(c.fetchone())
 
     real_detected = total_predictions - fake_detected
     
@@ -366,7 +380,7 @@ def admin():
     """)
     activity_data = c.fetchall()
     activity_dates = [row['date'] for row in activity_data]
-    activity_counts = [row['count'] for row in activity_data]
+    activity_counts = [extract_count(row) for row in activity_data]
     
     conn.close()
 
@@ -422,10 +436,10 @@ def dashboard():
 
     # 1. Fetch User Stats
     c.execute("SELECT COUNT(*) AS count FROM predictions WHERE user_id = %s", (user_id,))
-    total_scans = c.fetchone()["count"]
+    total_scans = extract_count(c.fetchone())
 
-    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE user_id = %s AND prediction_result LIKE 'Fake%'", (user_id,))
-    fake_found = c.fetchone()["count"]
+    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE user_id = %s AND prediction_result LIKE %s", (user_id, 'Fake%'))
+    fake_found = extract_count(c.fetchone())
     
     real_found = total_scans - fake_found
 
@@ -697,10 +711,10 @@ def api_dashboard():
     user_id = user['id']
 
     c.execute("SELECT COUNT(*) AS count FROM predictions WHERE user_id = %s", (user_id,))
-    total_scans = c.fetchone()["count"]
+    total_scans = extract_count(c.fetchone())
 
-    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE user_id = %s AND prediction_result LIKE 'Fake%'", (user_id,))
-    fake_found = c.fetchone()["count"]
+    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE user_id = %s AND prediction_result LIKE %s", (user_id, 'Fake%'))
+    fake_found = extract_count(c.fetchone())
     
     real_found = total_scans - fake_found
 
@@ -737,16 +751,16 @@ def api_admin():
         return jsonify({"msg": "Access Denied: Admins only"}), 403
 
     c.execute("SELECT COUNT(*) AS count FROM users WHERE role != 'ADMIN'")
-    total_users = c.fetchone()["count"]
+    total_users = extract_count(c.fetchone())
 
     c.execute("SELECT COUNT(*) AS count FROM users WHERE role = 'ADMIN'")
-    total_admins = c.fetchone()["count"]
+    total_admins = extract_count(c.fetchone())
 
     c.execute("SELECT COUNT(*) AS count FROM predictions")
-    total_predictions = c.fetchone()["count"]
+    total_predictions = extract_count(c.fetchone())
 
-    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE prediction_result LIKE 'Fake%'")
-    fake_detected = c.fetchone()["count"]
+    c.execute("SELECT COUNT(*) AS count FROM predictions WHERE prediction_result LIKE %s", ('Fake%',))
+    fake_detected = extract_count(c.fetchone())
 
     c.execute("SELECT id, username, fullname, role, last_login FROM users ORDER BY id DESC")
     users = [{"id": row["id"], "username": row["username"], "fullname": row["fullname"], "role": row["role"], "last_login": row["last_login"]} for row in c.fetchall()]

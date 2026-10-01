@@ -14,15 +14,35 @@ except ImportError:
 class DictAndTupleRow(dict):
     def __init__(self, cursor, row):
         super().__init__()
-        self._keys = [desc[0] for desc in cursor.description] if cursor.description else []
-        self._values = row
-        for key, val in zip(self._keys, row):
+        self._keys = [desc[0] for desc in cursor.description] if (cursor and cursor.description) else []
+        self._values = tuple(row) if row is not None else ()
+        for key, val in zip(self._keys, self._values):
             self[key] = val
+            if isinstance(key, str):
+                self[key.lower()] = val
+        # If single column result (such as COUNT(*)), guarantee 'count' key availability
+        if len(self._values) == 1 and 'count' not in self:
+            self['count'] = self._values[0]
 
     def __getitem__(self, key):
         if isinstance(key, int):
-            return self._values[key]
+            if 0 <= key < len(self._values):
+                return self._values[key]
+            raise IndexError("tuple index out of range")
+        if isinstance(key, str):
+            if key in self:
+                return super().__getitem__(key)
+            if key.lower() in self:
+                return super().__getitem__(key.lower())
+            if len(self._values) == 1:
+                return self._values[0]
         return super().__getitem__(key)
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except (KeyError, IndexError):
+            return default
 
 if PSYCOPG2_AVAILABLE:
     class DictAndTupleCursor(psycopg2.extensions.cursor):
@@ -47,6 +67,8 @@ class SQLiteCursorWrapper:
         self._cursor = cursor
 
     def _adapt_sql(self, sql):
+        # Convert escaped %% (for PostgreSQL compatibility) to single % for SQLite
+        sql = sql.replace('%%', '%')
         # Convert %s placeholder to ? for sqlite parameter binding
         return re.sub(r'(?<!%)\%s', '?', sql)
 
